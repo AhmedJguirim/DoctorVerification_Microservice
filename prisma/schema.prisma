@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define the Document model
+model Document {
+  document_id   Int      @id @default(autoincrement())
+  doctor_id     String
+  document_type String
+  document_path String
+  encrypted_key String
+  created_at    DateTime
+
+  @@map("documents")
+}
+
+// Define the VerificationStatus model
+model VerificationStatus {
+  verification_id     Int      @id @default(autoincrement())
+  doctor_id           String
+  verified_by_user_id String
+  status              String // Consider using an Enum if there are a limited number of statuses
+  updated_at          DateTime
+
+  // Relations
+  auditTrails AuditTrail[]
+
+  @@map("verification_status")
+}
+
+// Define the AuditTrail model
+model AuditTrail {
+  audit_id           Int      @id @default(autoincrement())
+  verification_id    Int
+  previous_status    String
+  new_status         String
+  changed_by_user_id String
+  changed_at         DateTime
+
+  // Relations
+  verificationStatus VerificationStatus @relation(fields: [verification_id], references: [verification_id])
+
+  @@map("audit_trail")
+}
