@@ -4,11 +4,31 @@ const handlePrismaError = require("../helpers/handleError.helper"); // Assuming 
 
 class VerificationController {
   static async verifyDoctor(req, res) {
-    const { doctorId, verifiedByUserId, status } = req.body;
+    const { submissionId, verifiedByUserId, status } = req.body;
+    if (status !== "Verified" && status !== "Refused") {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
     try {
+      await prisma.submission.findUniqueOrThrow({
+        where: {
+          id: submissionId,
+        },
+      });
+      const verificationExists = await prisma.verificationStatus.findMany({
+        where: {
+          submission_id: submissionId,
+        },
+      });
+      if (verificationExists.length > 0) {
+        return res.status(400).json({
+          error:
+            "Doctor already verified , update the status using the the update endpoint",
+        });
+      }
       const verification = await prisma.verificationStatus.create({
         data: {
-          doctor_id: doctorId,
+          submission_id: submissionId,
           verified_by_user_id: verifiedByUserId,
           status: status,
           updated_at: new Date(),
@@ -28,14 +48,13 @@ class VerificationController {
   static async getVerificationStatus(req, res) {
     const { doctorId } = req.params;
     try {
-      const status = await prisma.verificationStatus.findMany({
+      const verification = await prisma.verificationStatus.findUnique({
         where: {
           doctor_id: doctorId,
         },
-        orderBy: [{ updated_at: "desc" }],
       });
       APILogger.info("Verification status retrieved", { doctorId });
-      res.json(status[0]?.status);
+      res.json(verification.status);
     } catch (error) {
       APILogger.error("Error retrieving verification status");
       handlePrismaError(error, res);
@@ -50,6 +69,7 @@ class VerificationController {
         data: {
           status: newStatus,
           updated_at: new Date(),
+          verified_by_user_id: changedByUserId,
         },
       });
       await prisma.auditTrail.create({

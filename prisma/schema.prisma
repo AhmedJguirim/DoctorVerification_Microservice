@@ -36,7 +36,7 @@ model VerificationStatus {
   submission  Submission   @relation(fields: [submission_id], references: [id])
   auditTrails AuditTrail[]
 
-  @@index([verified_by_user_id]) // Optimizes queries filtered by verified_by_user_id
+  @@index([verified_by_user_id, submission_id])
   @@map("verification_status")
 }
 
