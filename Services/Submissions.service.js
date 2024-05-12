@@ -44,6 +44,7 @@ class SubmissionService {
 
   static async getSubmissionByCriteria(criteria, value) {
     //find the submission by criteria
+    console.log(criteria, value);
     let submission = await prisma.submission.findFirst({
       where: {
         [criteria]: value,

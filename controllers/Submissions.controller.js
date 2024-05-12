@@ -28,6 +28,7 @@ class SubmissionController {
     try {
       //find the submission by doctorId
       const { doctorId } = req.params;
+      console.log(doctorId);
       const submission = await submissionsService.getSubmissionByCriteria(
         "doctorId",
         doctorId

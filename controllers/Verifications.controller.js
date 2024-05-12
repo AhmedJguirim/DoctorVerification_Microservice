@@ -1,6 +1,7 @@
-const prisma = require("../prisma/prismaClient");
 const APILogger = require("../helpers/Logger"); // Assuming APILogger is correctly imported
 const handlePrismaError = require("../helpers/handleError.helper"); // Assuming this is the error handling function
+const submissionsService = require("../Services/Submissions.service");
+const verificationsService = require("../Services/Verifications.service");
 
 class VerificationController {
   static async verifyDoctor(req, res) {
@@ -8,37 +9,24 @@ class VerificationController {
     if (status !== "Verified" && status !== "Refused") {
       return res.status(400).json({ error: "Invalid status" });
     }
-
     try {
-      await prisma.submission.findUniqueOrThrow({
-        where: {
-          id: submissionId,
-        },
-      });
-      const verificationExists = await prisma.verificationStatus.findMany({
-        where: {
-          submission_id: submissionId,
-        },
-      });
-      if (verificationExists.length > 0) {
+      const verification =
+        await verificationsService.getVerificationStatusBySubmissionId(
+          submissionId
+        );
+      if (verification) {
         return res.status(400).json({
           error:
-            "Doctor already verified , update the status using the the update endpoint",
+            "Doctor already verified, try updating the status using the update endpoint",
         });
       }
-      const verification = await prisma.verificationStatus.create({
-        data: {
-          submission_id: submissionId,
-          verified_by_user_id: verifiedByUserId,
-          status: status,
-          updated_at: new Date(),
-        },
-      });
-      APILogger.info("Doctor verified successfully", {
-        doctorId,
+      const newVerification = await verificationsService.createVerification(
+        submissionId,
         verifiedByUserId,
-      });
-      res.status(201).json(verification);
+        status
+      );
+      APILogger.info("Doctor verified successfully", verification);
+      res.status(201).json(newVerification);
     } catch (error) {
       APILogger.error("Error verifying doctor");
       handlePrismaError(error, res);
@@ -48,11 +36,9 @@ class VerificationController {
   static async getVerificationStatus(req, res) {
     const { doctorId } = req.params;
     try {
-      const verification = await prisma.verificationStatus.findUnique({
-        where: {
-          doctor_id: doctorId,
-        },
-      });
+      const verification = await verificationsService.getVerificationByDoctorId(
+        doctorId
+      );
       APILogger.info("Verification status retrieved", { doctorId });
       res.json(verification.status);
     } catch (error) {
@@ -64,23 +50,11 @@ class VerificationController {
   static async updateVerificationStatus(req, res) {
     const { verificationId, newStatus, changedByUserId } = req.body;
     try {
-      const verification = await prisma.verificationStatus.update({
-        where: { verification_id: verificationId },
-        data: {
-          status: newStatus,
-          updated_at: new Date(),
-          verified_by_user_id: changedByUserId,
-        },
-      });
-      await prisma.auditTrail.create({
-        data: {
-          verification_id: verificationId,
-          previous_status: verification.status,
-          new_status: newStatus,
-          changed_by_user_id: changedByUserId,
-          changed_at: new Date(),
-        },
-      });
+      const verification = await verificationsService.updateVerificationStatus(
+        verificationId,
+        newStatus,
+        changedByUserId
+      );
       APILogger.info("Verification status updated", {
         verificationId,
         newStatus,
